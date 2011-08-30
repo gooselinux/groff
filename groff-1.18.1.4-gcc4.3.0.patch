@@ -1,0 +1,14 @@
+diff -up groff-1.18.1.4/src/devices/grolbp/lbp.cc.old groff-1.18.1.4/src/devices/grolbp/lbp.cc
+--- groff-1.18.1.4/src/devices/grolbp/lbp.cc.old	2008-01-03 15:38:25.000000000 +0100
++++ groff-1.18.1.4/src/devices/grolbp/lbp.cc	2008-01-03 15:38:33.000000000 +0100
+@@ -25,7 +25,9 @@ TODO
+ 
+  - Add X command to include bitmaps
+ */
+-#define _GNU_SOURCE
++#ifndef _GNU_SOURCE
++#define _GNU_SOURCE 1
++#endif
+ 
+ #include "driver.h"
+ #include "lbp.h"

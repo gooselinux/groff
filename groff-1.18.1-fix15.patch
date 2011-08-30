@@ -1,0 +1,27 @@
+--- groff-1.18.1/src/libs/libgroff/encoding.cc.fix15	2004-03-08 16:13:15.825000416 +0100
++++ groff-1.18.1/src/libs/libgroff/encoding.cc	2004-03-08 16:14:41.451983136 +0100
+@@ -384,21 +384,10 @@
+   }
+   /* otherwise */
+ #if HAVE_LANGINFO_CODESET
+-  charset = nl_langinfo(CODESET);
+-#else
+-  charset = strchr(locale, '.');
+-  if (charset)
+-    ++charset;
+-  else
+-    charset = "";
++  locale = nl_langinfo(CODESET);
+ #endif
+-  if (strncmp(locale, "ja", 2) == 0) {
+-    select_input_encoding_handler(charset);
+-    select_output_encoding_handler(charset);
+-  } else if ((!device || strcmp(device, "ascii8") == 0)) {
+-    select_input_encoding_handler(NULL);
+-    select_output_encoding_handler(NULL);
+-  }
++  select_input_encoding_handler(locale);
++  select_output_encoding_handler(locale);
+ #endif
+   return;
+ }

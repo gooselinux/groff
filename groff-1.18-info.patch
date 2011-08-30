@@ -1,0 +1,11 @@
+--- groff-1.18/doc/groff.texinfo.info	2002-07-05 17:07:24.000000000 +0200
++++ groff-1.18/doc/groff.texinfo	2002-08-01 15:23:23.000000000 +0200
+@@ -8,7 +8,7 @@
+ @c
+ 
+ @c %**start of header (This is for running Texinfo on a region.)
+-@setfilename groff
++@setfilename groff.info
+ @settitle The GNU Troff Manual
+ @setchapternewpage odd
+ @footnotestyle separate

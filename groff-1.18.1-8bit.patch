@@ -1,0 +1,17 @@
+2002-10-11  Ruslan Ermilov  <ru@FreeBSD.org>
+
+       * src/roff/troff/env.cc (hyphen_trie::read_patterns_file): Add
+       cast to `unsigned char' to properly read patterns with 8bit
+       characters.
+
+--- groff-1.18.1/src/roff/troff/env.cc
++++ groff-1.18.1/src/roff/troff/env.cc
+@@ -3924,7 +3924,7 @@
+     if (i > 0) {
+       if (have_patterns || final_pattern || traditional) {
+ 	for (int j = 0; j < i; j++)
+-	  buf[j] = hpf_code_table[buf[j]];
++	  buf[j] = hpf_code_table[(unsigned char)buf[j]];
+ 	insert_pattern(buf, i, num);
+ 	final_pattern = 0;
+       }

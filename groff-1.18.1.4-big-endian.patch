@@ -1,0 +1,17 @@
+Resolves SIGSEG on big endian architectures when parsing multibyte characters.
+(This bug is brought by groff_1.18.1-15.diff.)
+
+bz #601874 - segfault in grotty when trying to open abrt man pages
+
+diff -u -urp groff-1.18.1.4.old/src/libs/libdriver/input.cc groff-1.18.1.4.new/src/libs/libdriver/input.cc
+--- groff-1.18.1.4.old/src/libs/libdriver/input.cc	2010-06-09 13:15:43.635952698 +0200
++++ groff-1.18.1.4.new/src/libs/libdriver/input.cc	2010-06-09 13:14:10.706952702 +0200
+@@ -1786,7 +1786,7 @@ do_file(const char *filename)
+ 	if (npages <= 0)
+ 	  fatal_command(command);
+ 	char *str_arg = get_string_arg();
+-	size_t i = 0;
++	int i = 0;
+ 	while ((c = str_arg[i++]) != '\0') {
+ 	  EnvInt w;
+ #ifdef	ENABLE_MULTIBYTE

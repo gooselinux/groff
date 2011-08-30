@@ -1,0 +1,22 @@
+--- groff-1.18.1/src/roff/troff/input.cc.gzext	2003-02-10 18:32:00.000000000 +0100
++++ groff-1.18.1/src/roff/troff/input.cc	2003-02-10 18:33:18.000000000 +0100
+@@ -5487,12 +5487,16 @@
+     char cbuf[PATH_MAX], * cwd;
+     char pbuf[PATH_MAX], * path;
+     struct stat st;
++    char tmp[PATH_MAX];
++    snprintf(tmp, PATH_MAX, "%s.gz", nm.contents());
+ 
+     if ((cwd = realpath(".", cbuf)) == NULL)
+       error("realpath on `%1' failed: %2", ".", strerror(errno));
+-    else if ((path = realpath(nm.contents(), pbuf)) == NULL)
+-      error("realpath on `%1' failed: %2", nm.contents(), strerror(errno));
+-    else if (safer_flag && strncmp(cwd, path, strlen(cwd)))
++    else if ((path = realpath(nm.contents(), pbuf)) == NULL &&
++	     (path = realpath(tmp, pbuf)) == NULL)
++    {
++	error("realpath on `%1' failed: %2", nm.contents(), strerror(errno));
++    } else if (safer_flag && strncmp(cwd, path, strlen(cwd)))
+       error("won't source `%1' outside of `%2' without -U flag", path, cwd);
+     else if (stat(path, &st) < 0)
+       error("can't stat `%1': %2", path, strerror(errno));

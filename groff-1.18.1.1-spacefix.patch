@@ -1,0 +1,11 @@
+--- ./src/roff/troff/env.cc.orig	2006-01-12 14:43:05.000000000 +0100
++++ ./src/roff/troff/env.cc	2006-01-12 14:45:55.000000000 +0100
+@@ -300,7 +300,7 @@
+      * This code is based on jgroff
+      * about kerning between ASCII and EUC-JP 
+      */
+-    if (!ci->get_wchar_code()) {
++    if (!ci->get_wchar_code() || wchar_code(ci->get_wchar_code()) < 0x590) {
+       /*
+        * This node is a ASCII character node.
+        */

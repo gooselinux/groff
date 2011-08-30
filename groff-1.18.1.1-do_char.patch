@@ -1,0 +1,27 @@
+--- groff-1.18.1.1/src/xditview/draw.c.do_char	2004-09-15 17:42:34.221596494 +0200
++++ groff-1.18.1.1/src/xditview/draw.c	2004-09-15 17:42:35.880369335 +0200
+@@ -418,7 +418,11 @@
+ 				   dw->dvi.state->font_size, c, &wid))
+ 		return;
+ 	if (dw->dvi.native) {
++#ifdef ENABLE_MULTIBYTE
++		DoCharacter (dw, c, wid, map->char2XChar2b);
++#else
+ 		DoCharacter (dw, c, wid);
++#endif
+ 		return;
+ 	}
+ 	map = QueryFontMap (dw, dw->dvi.state->font_number);
+@@ -429,7 +433,11 @@
+ 	     name = device_name_for_code ((DeviceFont *)0, c)) {
+ 		int code = DviCharIndex (map, name);
+ 		if (code >= 0) {
+-			DoCharacter (dw, code, wid);
++#ifdef ENABLE_MULTIBYTE
++			DoCharacter (dw, code, wid, map->char2XChar2b);
++#else		
++			DoCharacter (dw, code, wid);
++#endif
+ 			break;
+ 		}
+ 		if (FakeCharacter (dw, name, wid))

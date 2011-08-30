@@ -1,0 +1,12 @@
+diff -rup groff-1.18.1.4/src/roff/troff/node.cc groff-1.18.1.4.test/src/roff/troff/node.cc
+--- groff-1.18.1.4/src/roff/troff/node.cc	2010-06-28 12:11:58.511549052 +0200
++++ groff-1.18.1.4.test/src/roff/troff/node.cc	2010-06-28 18:34:45.651674069 +0200
+@@ -4625,7 +4625,7 @@ node *make_node(charinfo *ci, environmen
+   case charinfo::TRANSLATE_DUMMY:
+     return new dummy_node;
+   case charinfo::TRANSLATE_HYPHEN_INDICATOR:
+-    error("translation to \\% ignored in this context");
++    error("translation to \\%% ignored in this context");
+     break;
+   }
+   charinfo *tem = ci->get_translation();

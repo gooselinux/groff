@@ -1,0 +1,22 @@
+diff -up groff-1.18.1.4/contrib/groffer/groffer.sh.old groff-1.18.1.4/contrib/groffer/groffer.sh
+--- groff-1.18.1.4/contrib/groffer/groffer.sh.old	2006-10-04 22:35:39.000000000 +0200
++++ groff-1.18.1.4/contrib/groffer/groffer.sh	2007-10-08 09:01:29.000000000 +0200
+@@ -129,7 +129,7 @@ no)
+ esac;
+ 
+ export _GROFFER2_SH;		# file name of the script that follows up
+-_GROFFER2_SH="${_GROFFER_LIBDIR}"'groffer2.sh';
++_GROFFER2_SH="${_GROFFER_LIBDIR}${_GROFF_VERSION}"'groffer2.sh';
+ 
+ export _GROFFER_SH;		# file name of this shell script
+ case "$0" in
+@@ -331,7 +331,8 @@ fi;
+ if test _"${_SHELL}"_ = __
+ then
+   # no shell found, so start groffer2.sh normally
+-  eval . "'${_GROFFER2_SH}'" '"$@"';
++  #eval . "'${_GROFFER2_SH}'" '"$@"';
++  eval . "/usr/share/groff/${_GROFF_VERSION}/groffer/groffer2.sh" '"$@"';
+   exit;
+ else
+   # start groffer2.sh with the found $_SHELL

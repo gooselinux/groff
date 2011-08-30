@@ -1,0 +1,340 @@
+--- groff-1.18/src/roff/troff/Makefile.sub.hugo	2002-05-03 00:33:21.000000000 +0200
++++ groff-1.18/src/roff/troff/Makefile.sub	2002-11-04 21:30:09.000000000 +0100
+@@ -1,6 +1,6 @@
+ PROG=troff$(EXEEXT)
+ MAN1=troff.n
+-XLIBS=$(LIBGROFF)
++XLIBS=-lz $(LIBGROFF)
+ MLIB=$(LIBM)
+ OBJS=\
+   env.$(OBJEXT) \
+--- groff-1.18/src/roff/troff/input.cc.hugo	2002-11-04 21:30:09.000000000 +0100
++++ groff-1.18/src/roff/troff/input.cc	2002-11-04 21:36:13.000000000 +0100
+@@ -42,6 +42,8 @@
+ 
+ #include "nonposix.h"
+ 
++#include <zlib.h>
++
+ #ifdef NEED_DECLARATION_PUTENV
+ extern "C" {
+   int putenv(const char *);
+@@ -217,6 +219,130 @@
+   skip_line();
+ }
+ 
++enum opq_fp_zmode { OPQ_FP_STDIO, OPQ_FP_ZLIB, OPQ_FP_GUESS };
++
++class opaque_fp {
++	private:
++		FILE * stdio_fp;
++		gzFile zlib_fp;
++		int	is_zipped;
++	// We need this because zlib has no ungetc.
++		int char_pending;
++		char saved_char;
++		int popened;
++	public:
++		opaque_fp(const char *,
++			const char *,
++			enum opq_fp_zmode = OPQ_FP_STDIO);
++		opaque_fp(FILE *, int = 0);
++		~opaque_fp();
++		int active();
++		int xgetc();
++		int unxgetc(int);
++};
++
++int opaque_fp::active()
++{
++	if (is_zipped) {
++		return zlib_fp!=NULL;
++	} else {
++		return stdio_fp!=NULL;
++	}
++}
++
++// This constructor is guaranteed to set is_zipped to 0 or 1, and set the
++// corresponding fp to something non-rubbish.
++opaque_fp::opaque_fp(const char * fn, const char * mode, enum opq_fp_zmode z)
++{
++	switch (z) {
++		case OPQ_FP_STDIO :
++			stdio_fp=fopen(fn,mode);
++			is_zipped=0;
++			break;
++
++		case OPQ_FP_ZLIB :
++			zlib_fp=gzopen(fn,mode);
++			is_zipped=1;
++			char_pending=0;
++			break;
++
++		case OPQ_FP_GUESS :
++			stdio_fp=fopen(fn,mode);
++			is_zipped=0;
++			if (active()) {
++				break;
++			}
++
++			// Yes, I'm a C addict
++			char * s;
++			s=(char*)malloc(strlen(fn)+4);
++			sprintf(s,"%s.gz",fn);
++			zlib_fp=gzopen(s,mode);
++			char_pending=0;
++			is_zipped=1;
++			free(s);
++			break;
++	}
++}
++
++opaque_fp::opaque_fp(FILE *fp, int p)
++{
++	stdio_fp=fp;
++	is_zipped=0;
++	popened=p;
++}
++
++opaque_fp::~opaque_fp()
++{
++	if (is_zipped) {
++		if (zlib_fp!=NULL) {
++			gzclose(zlib_fp);
++			zlib_fp=NULL;
++		}
++	} else {
++		if (stdio_fp!=NULL) {
++			if (popened) {
++				pclose(stdio_fp);
++			} else if (stdio_fp!=stdin) {
++				fclose(stdio_fp);
++			} else {
++				clearerr(stdin);
++			}
++			stdio_fp=NULL;
++		}
++	}
++}
++
++// These routines must be called only if active() is true
++int opaque_fp::xgetc()
++{
++	if (is_zipped) {
++		if (char_pending) {
++			char_pending--;
++			return saved_char;
++		} else {
++			return gzgetc(zlib_fp);
++		}
++	} else {
++		return getc(stdio_fp);
++	}
++}
++
++int opaque_fp::unxgetc(int c)
++{
++	if (is_zipped) {
++		if (char_pending) {
++			return EOF;
++		} else {
++			char_pending++;
++			saved_char=c;
++			return c;
++		}
++	} else {
++		return ungetc(c,stdio_fp);
++	}
++}
++
+ class input_iterator {
+ public:
+   input_iterator();
+@@ -236,7 +362,7 @@
+   virtual int get_location(int, const char **, int *) { return 0; }
+   virtual void backtrace() {}
+   virtual int set_location(const char *, int) { return 0; }
+-  virtual int next_file(FILE *, const char *) { return 0; }
++  virtual int next_file(opaque_fp *, const char *) { return 0; }
+   virtual void shift(int) {}
+   virtual int is_boundary() {return 0; }
+   virtual int internal_level() { return 0; }
+@@ -277,7 +403,7 @@
+ };
+ 
+ class file_iterator : public input_iterator {
+-  FILE *fp;
++  opaque_fp *fp;
+   int lineno;
+   const char *filename;
+   int popened;
+@@ -286,7 +412,9 @@
+   enum { BUF_SIZE = 512 };
+   unsigned char buf[BUF_SIZE];
+   void close();
++  void ctor_end(void);
+ public:
++  file_iterator(opaque_fp *, const char *, int = 0);
+   file_iterator(FILE *, const char *, int = 0);
+   ~file_iterator();
+   int fill(node **);
+@@ -294,18 +422,30 @@
+   int get_location(int, const char **, int *);
+   void backtrace();
+   int set_location(const char *, int);
+-  int next_file(FILE *, const char *);
++  int next_file(opaque_fp *, const char *);
+   int is_file();
+ };
+ 
+-file_iterator::file_iterator(FILE *f, const char *fn, int po)
++file_iterator::file_iterator(opaque_fp *f, const char *fn, int po)
+ : fp(f), lineno(1), filename(fn), popened(po),
+   newline_flag(0), seen_escape(0)
+ {
+-  if ((font::use_charnames_in_special) && (fn != 0)) {
++	ctor_end();
++}
++
++file_iterator::file_iterator(FILE * f, const char * fn, int po)
++: fp(new opaque_fp(f,po)), lineno(1), filename(fn), popened(po),
++  newline_flag(0), seen_escape(0)
++{
++	ctor_end();
++}
++
++void file_iterator::ctor_end(void)
++{
++  if ((font::use_charnames_in_special) && (filename != 0)) {
+     if (!the_output)
+       init_output();
+-    the_output->put_filename(fn);
++    the_output->put_filename(filename);
+   }
+ }
+ 
+@@ -316,6 +456,8 @@
+ 
+ void file_iterator::close()
+ {
++	delete fp;
++#if 0
+   if (fp == stdin)
+     clearerr(stdin);
+ #ifndef POPEN_MISSING
+@@ -324,6 +466,7 @@
+ #endif /* not POPEN_MISSING */
+   else
+     fclose(fp);
++#endif
+ }
+ 
+ int file_iterator::is_file()
+@@ -331,7 +474,7 @@
+   return 1;
+ }
+ 
+-int file_iterator::next_file(FILE *f, const char *s)
++int file_iterator::next_file(opaque_fp *f, const char *s)
+ {
+   close();
+   filename = s;
+@@ -354,7 +497,7 @@
+   ptr = p;
+   unsigned char *e = p + BUF_SIZE;
+   while (p < e) {
+-    int c = getc(fp);
++    int c = fp->xgetc();
+     if (c == EOF)
+       break;
+     if (invalid_input_char(c))
+@@ -381,13 +524,13 @@
+ 
+ int file_iterator::peek()
+ {
+-  int c = getc(fp);
++  int c = fp->xgetc();
+   while (invalid_input_char(c)) {
+     warning(WARN_INPUT, "invalid input character code %1", int(c));
+-    c = getc(fp);
++    c = fp->xgetc();
+   }
+   if (c != EOF)
+-    ungetc(c, fp);
++    fp->unxgetc(c);
+   return c;
+ }
+ 
+@@ -433,7 +576,7 @@
+   static int set_location(const char *, int);
+   static void backtrace();
+   static void backtrace_all();
+-  static void next_file(FILE *, const char *);
++  static void next_file(opaque_fp *, const char *);
+   static void end_file();
+   static void shift(int n);
+   static void add_boundary();
+@@ -605,7 +748,7 @@
+   return 0;
+ }
+ 
+-void input_stack::next_file(FILE *fp, const char *s)
++void input_stack::next_file(opaque_fp *fp, const char *s)
+ {
+   input_iterator **pp;
+   for (pp = &top; *pp != &nil_iterator; pp = &(*pp)->next)
+@@ -691,10 +834,11 @@
+     input_stack::end_file();
+   else {
+     errno = 0;
+-    FILE *fp = fopen(nm.contents(), "r");
+-    if (!fp)
++    opaque_fp *fp = new opaque_fp(nm.contents(), "r");
++    if (!fp->active()) {
++	    delete fp;
+       error("can't open `%1': %2", nm.contents(), strerror(errno));
+-    else
++    } else
+       input_stack::next_file(fp, nm.contents());
+   }
+   tok.next();
+@@ -5372,11 +5516,12 @@
+       error("won't source non-file `%1' without -U flag", path);
+     else {
+       errno = 0;
+-      FILE *fp = fopen(path, "r");
+-      if (fp)
++      opaque_fp *fp = new opaque_fp(nm.contents(), "r",OPQ_FP_GUESS);
++      if (fp->active()) {
+         input_stack::push(new file_iterator(fp, nm.contents()));
+-      else
+-        error("can't open `%1': %2", path, strerror(errno));
++      } else {
++	delete fp;
++      }
+     }
+     tok.next();
+   }
+@@ -6822,16 +6967,18 @@
+ 
+ static void process_input_file(const char *name)
+ {
+-  FILE *fp;
++  opaque_fp *fp;
+   if (strcmp(name, "-") == 0) {
+     clearerr(stdin);
+-    fp = stdin;
++    fp = new opaque_fp(stdin);
+   }
+   else {
+     errno = 0;
+-    fp = fopen(name, "r");
+-    if (!fp)
++    fp = new opaque_fp(name, "r", OPQ_FP_GUESS);
++    if (!fp->active()) {
++	    delete fp;
+       fatal("can't open `%1': %2", name, strerror(errno));
++    }
+   }
+   input_stack::push(new file_iterator(fp, name));
+   tok.next();

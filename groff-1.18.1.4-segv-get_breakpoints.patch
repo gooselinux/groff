@@ -1,0 +1,12 @@
+diff -rup groff-1.18.1.4/src/roff/troff/node.cc groff-1.18.1.4.test/src/roff/troff/node.cc
+--- groff-1.18.1.4/src/roff/troff/node.cc	2010-06-28 12:11:58.511549052 +0200
++++ groff-1.18.1.4.test/src/roff/troff/node.cc	2010-06-28 17:48:57.663673790 +0200
+@@ -3450,7 +3450,7 @@ int node::nbreaks()
+ breakpoint *space_node::get_breakpoints(hunits width, int ns,
+ 					breakpoint *rest, int is_inner)
+ {
+-  if (next->discardable())
++  if (next && next->discardable())
+     return rest;
+   breakpoint *bp = new breakpoint;
+   bp->next = rest;
